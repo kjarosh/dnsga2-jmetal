@@ -1,0 +1,7 @@
+.idea/
+target/
+
+# outputs produced by jMetal
+FUN.tsv
+VAR.tsv
+jMetal.log
