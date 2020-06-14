@@ -11,8 +11,6 @@ import org.uma.jmetal.problem.Problem;
 import org.uma.jmetal.problem.multiobjective.zdt.ZDT1;
 import org.uma.jmetal.solution.DoubleSolution;
 import org.uma.jmetal.util.AbstractAlgorithmRunner;
-import org.uma.jmetal.util.AlgorithmRunner;
-import org.uma.jmetal.util.JMetalLogger;
 import org.uma.jmetal.util.comparator.DominanceComparator;
 import org.uma.jmetal.util.evaluator.impl.SequentialSolutionListEvaluator;
 
@@ -30,7 +28,7 @@ public class Example extends AbstractAlgorithmRunner {
             new SBXCrossover(0.9, 20.0);
     private static final MutationOperator<DoubleSolution> mutation =
             new PolynomialMutation(1.0 / problem.getNumberOfVariables(), 20.0);
-    private static final SelectionOperator<List<DoubleSolution>, DoubleSolution> SELECTION =
+    private static final SelectionOperator<List<DoubleSolution>, DoubleSolution> selection =
             new BinaryTournamentSelection<>();
 
     private static final ListMigrationCoordinator<DoubleSolution> phasedMigrationCoordinator =
@@ -49,17 +47,16 @@ public class Example extends AbstractAlgorithmRunner {
 
         List<DoubleSolution> finalPopulation = new CopyOnWriteArrayList<>();
         List<Thread> pool = new ArrayList<>();
-        for (int i = 0; i < threads; ++i) {
-            final int threadNo = i;
+        for (int threadNo = 0; threadNo < threads; ++threadNo) {
             Algorithm<List<DoubleSolution>> algorithm = new DNSGAII<>(
                     problem,
-                    2500,
+                    250,
                     populationSize,
                     populationSize,
                     populationSize,
                     crossover,
                     mutation,
-                    SELECTION,
+                    selection,
                     new DominanceComparator<>(),
                     new SequentialSolutionListEvaluator<>(),
                     100,
@@ -67,13 +64,15 @@ public class Example extends AbstractAlgorithmRunner {
             migrationCoordinator.register(algorithm);
 
             Thread thread = new Thread(() -> {
-                AlgorithmRunner algorithmRunner = new AlgorithmRunner.Executor(algorithm)
-                        .execute();
+                try {
+                    algorithm.run();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    System.exit(-1);
+                }
 
                 List<DoubleSolution> population = algorithm.getResult();
                 finalPopulation.addAll(population);
-                long computingTime = algorithmRunner.getComputingTime();
-                JMetalLogger.logger.info("Total execution time [" + threadNo + "]: " + computingTime + "ms");
             });
             thread.setName("DNSGAII-" + threadNo);
             pool.add(thread);

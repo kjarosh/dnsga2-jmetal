@@ -8,7 +8,6 @@ import org.uma.jmetal.problem.Problem;
 import org.uma.jmetal.solution.Solution;
 import org.uma.jmetal.util.evaluator.SolutionListEvaluator;
 
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
@@ -50,11 +49,7 @@ public class DNSGAII<S extends Solution<?>>
 
     protected void migrate() {
         List<S> migrated = migrationCoordinator.gather(this, population);
-        for (int i = 0; migrated.size() < population.size(); ++i) {
-            migrated.add(population.get(i));
-        }
-
-        population = new ArrayList<>(migrated);
+        population = replacement(population, migrated);
     }
 
     @Override
