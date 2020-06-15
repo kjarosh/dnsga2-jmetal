@@ -4,6 +4,8 @@ import org.uma.jmetal.algorithm.Algorithm;
 import org.uma.jmetal.operator.impl.selection.RankingAndCrowdingSelection;
 import org.uma.jmetal.solution.Solution;
 import org.uma.jmetal.util.comparator.DominanceComparator;
+import org.uma.jmetal.util.solutionattribute.Ranking;
+import org.uma.jmetal.util.solutionattribute.impl.DominanceRanking;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -20,12 +22,14 @@ public class PhasedListMigrationCoordinator<S extends Solution<?>> implements Li
     private final Comparator<S> dominance;
     private final List<Algorithm<List<S>>> parties = new CopyOnWriteArrayList<>();
     private final Phaser phaser = new Phaser();
+    private final MultithreadedDominanceRanking<S> ranking;
 
     private final Set<S> aggregatedSolution = new CopyOnWriteArraySet<>();
     private List<S> selected;
 
     public PhasedListMigrationCoordinator() {
         this.dominance = new DominanceComparator<>();
+        this.ranking = new MultithreadedDominanceRanking<>(dominance);
     }
 
     @Override
@@ -37,10 +41,27 @@ public class PhasedListMigrationCoordinator<S extends Solution<?>> implements Li
 
         aggregatedSolution.addAll(solution);
         phaser.arriveAndAwaitAdvance();
+        List<S> pop = new ArrayList<>(aggregatedSolution);
+//
+//        if (isMaster(party)) {
+//            ranking.clear();
+//        }
+//
+//        phaser.arriveAndAwaitAdvance();
+//
+//        ranking.computeRankingMultithreaded(pop, partyNo, parties.size(), phaser);
+//
+//        phaser.arriveAndAwaitAdvance();
+//
+// //       System.out.println("Performing migration...");
+//        if (isMaster(party)) {
+//            selected = selection(pop, ranking);
+//        }
 
-        System.out.println("Performing migration...");
         if (isMaster(party)) {
-            selected = selection(new ArrayList<>(aggregatedSolution));
+            Ranking<S> ranking = new DominanceRanking<>(dominance);
+            ranking.computeRanking(pop);
+            selected = selection(pop, ranking);
         }
 
         phaser.arriveAndAwaitAdvance();
@@ -55,9 +76,9 @@ public class PhasedListMigrationCoordinator<S extends Solution<?>> implements Li
         return parties.get(0) == party;
     }
 
-    private List<S> selection(List<S> population) {
+    private List<S> selection(List<S> population, Ranking<S> ranking) {
         RankingAndCrowdingSelection<S> rankingAndCrowdingSelection =
-                new RankingAndCrowdingSelection<>(population.size() / 2, dominance);
+                new MultithreadedRankingAndCrowdingSelection<>(ranking, population.size() / 2);
         return rankingAndCrowdingSelection.execute(population);
     }
 
